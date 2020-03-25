@@ -25,41 +25,25 @@ file_that_contains_validation_image_paths = open("data/custom/valid.txt","w+")
 #define sequnce for ramdimizing data
 # we use https://github.com/aleju/imgaug, all images will be go through this sequance and data augmentation willbe achieved
 seq = iaa.Sequential([
-    iaa.OneOf([
-      iaa.GaussianBlur((0, 2.0)), # blur images with a sigma between 0 and 3.0
-      iaa.AverageBlur(k=(2, 7)), # blur image using local means with kernel sizes between 2 and 7
-      iaa.MedianBlur(k=(3, 11)), # blur image using local medians with kernel sizes between 2 and 7
-    ]),
-    iaa.Sharpen(alpha=(0, 1.0), lightness=(0.75, 1.5)), # sharpen images
-    iaa.Emboss(alpha=(0, 1.0), strength=(0, 2.0)), # emboss images
-    iaa.CropAndPad(
-            percent=(-0.05, 0.2),
-            pad_mode=ia.ALL,
-            pad_cval=(0, 255)
-        ),
-    #iaa.Crop(px=(1, 32), keep_size=False),
-    iaa.Fliplr(0.5),
-    iaa.GaussianBlur(sigma=(0, 2.0)),
     iaa.Affine(translate_px={"x": (1, 5)}),
         iaa.Multiply((1.2, 1.5)), 
     iaa.Affine(
-        translate_px={"x": 60, "y": 40},
+        translate_px={"x": 60, "y": 60},
         scale=(0.7, 1.3),
-        rotate=(-5, 5) # rotate by -45 to +45 degrees
     ),
-    iaa.AdditiveGaussianNoise(scale=0.05*255),
-    iaa.Affine(translate_px={"x": (1, 5)})
+    iaa.Affine(translate_px={"y": (5, 35)})
 ])
 
 
 def write_augmented_image_and_labels(image_aug , bbs_aug,class_id, prefix,image_file_name, label_file_name):
 
-  file_that_contains_training_image_paths.write('data/custom/images/'+prefix+str(images[k]['file_name'])+'\n')
-  augmented_label = open("data/custom/labels/"+prefix+str(images[k]['file_name'][:-4])+".txt","w+")
+  file_that_contains_validation_image_paths.write('data/custom/images/'+prefix+ image_file_name +'\n')
+  file_that_contains_training_image_paths.write('data/custom/images/'+prefix+image_file_name+'\n')
+
+  augmented_label = open("data/custom/labels/"+prefix+label_file_name+".txt","w+")
 
   for i in range(len(bbs_aug)):
-
-    ##cv2.rectangle(image_aug, (int(bbs_aug[i].x1), int(bbs_aug[i].y1)), (int(bbs_aug[i].x2), int(bbs_aug[i].y2)), (255,0,0), 2)
+    cv2.rectangle(image_aug, (int(bbs_aug[i].x1), int(bbs_aug[i].y1)), (int(bbs_aug[i].x2), int(bbs_aug[i].y2)), (255,0,0), 2)
     x1 = int(bbs_aug[i].x1)
     x2 = int(bbs_aug[i].x2)
 
@@ -70,17 +54,14 @@ def write_augmented_image_and_labels(image_aug , bbs_aug,class_id, prefix,image_
       x1=1
     if x1 > 640:
       x1 = 639
-
     if x2 < 0:
       x2=1
     if x2 > 640:
       x2 = 639
-
     if y1 < 0:
       y1=1
     if y1 > 640:
       y1 = 639
-
     if y2 < 0:
       y2=1
     if y2 > 640:
@@ -107,9 +88,7 @@ def write_augmented_image_and_labels(image_aug , bbs_aug,class_id, prefix,image_
   cv2.imwrite('/home/atas/PyTorch-YOLOv3/data/custom/images/'+prefix+str(images[k]['file_name']),image_aug)
   augmented_label.close()
 
-                        
-
- 
+                       
 ## Go through all images that are labeled  
 for k in range (len(images)):
 
@@ -177,19 +156,23 @@ for k in range (len(images)):
   image_file_name = images[k]['file_name']
   label_file_name = images[k]['file_name'][:-4]+ ".txt"
   original_bounding_boxes = BoundingBoxesOnImage(all_boxes_of_this_image,shape=original_image.shape)
+  original_bounding_boxes.remove_out_of_image()
+  original_bounding_boxes.remove_out_of_image().clip_out_of_image()
+
 
   prefix = 'augmentation_one_'
   images_augmentation_one_, bbs_augmentation_one_ = seq(image=original_image, bounding_boxes=original_bounding_boxes)
   write_augmented_image_and_labels(images_augmentation_one_,bbs_augmentation_one_,annots[i]['category_id'],prefix,image_file_name,label_file_name)
 
+  '''
   prefix = 'augmentation_second_'
   images_augmentation_second_, bbs_augmentation_second_ = seq(image=original_image, bounding_boxes=original_bounding_boxes)
   write_augmented_image_and_labels(images_augmentation_second_,bbs_augmentation_second_,annots[i]['category_id'],prefix,image_file_name,label_file_name)
   
-  '''
   prefix = 'augmentation_third_'
   images_augmentation_third_, bbs_augmentation_third_ = seq(image=original_image, bounding_boxes=original_bounding_boxes)
   write_augmented_image_and_labels(images_augmentation_third_,bbs_augmentation_third_,annots[i]['category_id'],prefix,image_file_name,label_file_name)
+ 
 
   prefix = 'augmentation_forth_'
   images_augmentation_forth_, bbs_augmentation_forth_ = seq(image=original_image, bounding_boxes=original_bounding_boxes)
