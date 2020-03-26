@@ -8,6 +8,7 @@ data/coco
 data/custom
 backup
 weights/*.weights
+weights/*.pth
 __pycache__
 checkpoints
 logs/*

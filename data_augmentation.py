@@ -24,15 +24,17 @@ file_that_contains_validation_image_paths = open("data/custom/valid.txt","w+")
 
 #define sequnce for ramdimizing data
 # we use https://github.com/aleju/imgaug, all images will be go through this sequance and data augmentation willbe achieved
-seq = iaa.Sequential([
-    iaa.Affine(translate_px={"x": (1, 5)}),
-        iaa.Multiply((1.2, 1.5)), 
-    iaa.Affine(
-        translate_px={"x": 60, "y": 60},
-        scale=(0.7, 1.3),
-    ),
-    iaa.Affine(translate_px={"y": (5, 35)})
+
+ 
+# Define our sequence of augmentation steps that will be applied to every image.
+static_seq = iaa.Sequential([
+      iaa.Multiply((0.8, 1.3)), # change brightness, doesn't affect BBs
+      iaa.Affine(
+          translate_percent={"x": (-0.1, 0.1), "y": (-0.1, 0.1)},
+          scale=(0.6, 0.9)
+      ) # translate by 40/60px on x/y axis, and scale to 50-70%, affects BBs
 ])
+  
 
 
 def write_augmented_image_and_labels(image_aug , bbs_aug,class_id, prefix,image_file_name, label_file_name):
@@ -40,10 +42,10 @@ def write_augmented_image_and_labels(image_aug , bbs_aug,class_id, prefix,image_
   file_that_contains_validation_image_paths.write('data/custom/images/'+prefix+ image_file_name +'\n')
   file_that_contains_training_image_paths.write('data/custom/images/'+prefix+image_file_name+'\n')
 
-  augmented_label = open("data/custom/labels/"+prefix+label_file_name+".txt","w+")
+  augmented_label = open("data/custom/labels/"+prefix+label_file_name,"w+")
 
   for i in range(len(bbs_aug)):
-    cv2.rectangle(image_aug, (int(bbs_aug[i].x1), int(bbs_aug[i].y1)), (int(bbs_aug[i].x2), int(bbs_aug[i].y2)), (255,0,0), 2)
+    #cv2.rectangle(image_aug, (int(bbs_aug[i].x1), int(bbs_aug[i].y1)), (int(bbs_aug[i].x2), int(bbs_aug[i].y2)), (255,0,0), 2)
     x1 = int(bbs_aug[i].x1)
     x2 = int(bbs_aug[i].x2)
 
@@ -102,8 +104,8 @@ for k in range (len(images)):
   original_image = cv2.imread('/home/atas/PyTorch-YOLOv3/data/custom/images/'+str(images[k]['file_name']))
  
   ## The very first images are 1280x720 , so we need to resize ONCE them and ALWAYS change labels accordingly
-  #resized = cv2.resize(img, (640,360), interpolation = cv2.INTER_AREA)
-  #square_image = cv2.copyMakeBorder(resized, 0, 280, 0, 0, cv2.BORDER_CONSTANT) 
+  #resized = cv2.resize(original_image, (640,360), interpolation = cv2.INTER_AREA)
+  #original_image = cv2.copyMakeBorder(resized, 0, 280, 0, 0, cv2.BORDER_CONSTANT) 
 
   ##Open a file for each image thats has labeled objectsin
   file_that_contains_labels_for_this_image = open("data/custom/labels/"+str(images[k]['file_name'][:-4])+".txt","w+")
@@ -149,22 +151,32 @@ for k in range (len(images)):
       
       ##
       this_bounding_box = [BoundingBox(x1=int(center_x-width/2), x2=int(center_x+width/2), y1=int(center_y-height/2), y2=int(center_y+height/2))]
+      #cv2.rectangle(original_image, (int(center_x-width/2), int(center_y-height/2)), (int(center_x+width/2), int(center_y+height/2)), (255,0,0), 2)
+
       ## append this box
       all_boxes_of_this_image.extend(this_bounding_box)
 
 
   image_file_name = images[k]['file_name']
+  cv2.imwrite('/home/atas/PyTorch-YOLOv3/data/custom/images/'+image_file_name,original_image)
+
   label_file_name = images[k]['file_name'][:-4]+ ".txt"
+
   original_bounding_boxes = BoundingBoxesOnImage(all_boxes_of_this_image,shape=original_image.shape)
   original_bounding_boxes.remove_out_of_image()
   original_bounding_boxes.remove_out_of_image().clip_out_of_image()
 
-
   prefix = 'augmentation_one_'
-  images_augmentation_one_, bbs_augmentation_one_ = seq(image=original_image, bounding_boxes=original_bounding_boxes)
+  images_augmentation_one_, bbs_augmentation_one_ = static_seq(image=original_image, bounding_boxes=original_bounding_boxes)
   write_augmented_image_and_labels(images_augmentation_one_,bbs_augmentation_one_,annots[i]['category_id'],prefix,image_file_name,label_file_name)
+ 
+
+  prefix = 'augmentation_second_'
+  images_augmentation_second_, bbs_augmentation_second_ = static_seq(image=original_image, bounding_boxes=original_bounding_boxes)
+  write_augmented_image_and_labels(images_augmentation_second_,bbs_augmentation_second_,annots[i]['category_id'],prefix,image_file_name,label_file_name)
 
   '''
+ 
   prefix = 'augmentation_second_'
   images_augmentation_second_, bbs_augmentation_second_ = seq(image=original_image, bounding_boxes=original_bounding_boxes)
   write_augmented_image_and_labels(images_augmentation_second_,bbs_augmentation_second_,annots[i]['category_id'],prefix,image_file_name,label_file_name)
@@ -173,12 +185,10 @@ for k in range (len(images)):
   images_augmentation_third_, bbs_augmentation_third_ = seq(image=original_image, bounding_boxes=original_bounding_boxes)
   write_augmented_image_and_labels(images_augmentation_third_,bbs_augmentation_third_,annots[i]['category_id'],prefix,image_file_name,label_file_name)
  
-
   prefix = 'augmentation_forth_'
   images_augmentation_forth_, bbs_augmentation_forth_ = seq(image=original_image, bounding_boxes=original_bounding_boxes)
   write_augmented_image_and_labels(images_augmentation_forth_,bbs_augmentation_forth_,annots[i]['category_id'],prefix,image_file_name,label_file_name) 
-  ''' 
-
-
+  '''
+ 
 file_that_contains_training_image_paths.close()
 file_that_contains_validation_image_paths.close()
