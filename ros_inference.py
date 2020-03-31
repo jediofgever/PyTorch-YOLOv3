@@ -56,6 +56,7 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from skimage.util import img_as_float
 import PIL
+import time
 
 imsize = 640
 loader = transforms.Compose([transforms.Scale(imsize), transforms.ToTensor()])
@@ -75,13 +76,13 @@ def image_loader(image):
 parser = argparse.ArgumentParser()
 parser.add_argument("--image_folder", type=str, default="data/samples", help="path to dataset")
 parser.add_argument("--model_def", type=str, default="config/yolov3-custom.cfg", help="path to model definition file")
-parser.add_argument("--weights_path", type=str, default="weights/yolov3_ckpt_99.pth", help="path to weights file")
+parser.add_argument("--weights_path", type=str, default="weights/yolov3.weights", help="path to weights file")
 parser.add_argument("--class_path", type=str, default="data/custom/classes.names", help="path to class label file")
 parser.add_argument("--conf_thres", type=float, default=0.8, help="object confidence threshold")
 parser.add_argument("--nms_thres", type=float, default=0.2, help="iou thresshold for non-maximum suppression")
-parser.add_argument("--batch_size", type=int, default=1, help="size of the batches")
+parser.add_argument("--batch_size", type=int, default=10, help="size of the batches")
 parser.add_argument("--n_cpu", type=int, default=1, help="number of cpu threads to use during batch generation")
-parser.add_argument("--img_size", type=int, default=640, help="size of each image dimension")
+parser.add_argument("--img_size", type=int, default=320, help="size of each image dimension")
 parser.add_argument("--checkpoint_model", type=str, help="path to checkpoint model")
 opt = parser.parse_args()
 print(opt)
@@ -116,50 +117,53 @@ class YOLO3_ROS_Node:
                                            Image, self.callback, queue_size=1, buff_size=2002428800)
         self.bridge = CvBridge()                                                         
         self.counter = 1200
+        self.start_time = time.time()
+        self.x = 1 # displays the frame rate every 1 second
 
 
     def callback(self, ros_data):
         '''Callback function of subscribed topic. 
         Here images get converted and OBJECTS detected'''
         #### direct conversion to CV2 ####
-        cv_image = self.bridge.imgmsg_to_cv2(ros_data, desired_encoding="bgr8")
-        cv_image = cv2.resize(cv_image, (640,360), interpolation = cv2.INTER_AREA)
-        cv_image = cv2.copyMakeBorder(cv_image, 0, 280, 0, 0, cv2.BORDER_CONSTANT) 
+        original_img = self.bridge.imgmsg_to_cv2(ros_data, desired_encoding="bgr8")
+        #cv_image = cv2.resize(original_img, (640,320), interpolation = cv2.INTER_AREA)
+        cv_image = cv2.copyMakeBorder(original_img, 0, 420, 0, 0, cv2.BORDER_CONSTANT) 
+        
+        
 
+        
         # Uncomment thefollowing block in order to collect training data
         '''
         cv2.imwrite("/home/atas/MASKRCNN_REAL_DATASET/"+str(self.counter)+".png",cv_image)
         self.counter = self.counter +1 
         '''
-   
         cuda_tensor_of_original_image = image_loader(cv_image)
        # Get detections
         with torch.no_grad():
             detections = model(cuda_tensor_of_original_image)
             detections = non_max_suppression(detections, opt.conf_thres, opt.nms_thres)
 
-
-
-
         if detections is not None:
             # Rescale boxes to original image
             #detections = rescale_boxes(detections, opt.img_size, cv_image.shape[:2])
-            print(detections)
+            # print(detections)
             for x1, y1, x2, y2, conf, cls_conf, cls_pred in detections[0]:
 
-                print("\t+ Label: %s, Conf: %.5f" % (classes[int(cls_pred)], cls_conf.item()))
-
-                box_w = x2 - x1
-                box_h = y2 - y1
+                #print("\t+ Label: %s, Conf: %.5f" % (classes[int(cls_pred)], cls_conf.item()))
 
                 # Create a Rectangle patch
-                cv2.rectangle(cv_image, (x1,y1), (x2,y2), (255,0,0), 2)
+                cv2.rectangle(cv_image, (x1*1.5,y1*1.5), (x2*1.5,y2*1.5), (255,0,0), 2)
                 # Add the bbox to the plot
                 # Add label
         #### PUBLISH SEGMENTED IMAGE ####
         msg = self.bridge.cv2_to_imgmsg(cv_image, "bgr8")
         msg.header.stamp = rospy.Time.now()
         self.image_pub.publish(msg)
+        self.counter+=1
+        if (time.time() - self.start_time) > self.x :
+            print("FPS: ", self.counter / (time.time() - self.start_time))
+            self.counter = 0
+            self.start_time = time.time()    
          
 
     def load_image(self, image):
