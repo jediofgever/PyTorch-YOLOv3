@@ -22,16 +22,13 @@ import matplotlib.patches as patches
 from matplotlib.ticker import NullLocator
 
 
-from motor_part.maskrcnn_train import  MotorPartConfig
-from mrcnn.config import Config
+
 import json
 import datetime
-from mrcnn.model import log
-import mrcnn.model as modellib
-import mrcnn.utils as utils
-from skimage.io import imsave, imread
+ 
+ 
 
-from mrcnn import utils
+
 import os, os.path
 import sys
 import random
@@ -39,11 +36,9 @@ import math
 import re
 import time
 import numpy as np
-import tensorflow as tf
-import skimage
-
+ 
 import cv2
-import h5py
+ 
 import sys
 import time
 
@@ -53,8 +48,13 @@ import rospy
 # Ros Messages
 from sensor_msgs.msg import CompressedImage
 from sensor_msgs.msg import Image
+from vision_msgs.msg import Detection2DArray
+from vision_msgs.msg import Detection2D
+from vision_msgs.msg import BoundingBox2D
+
+
 from cv_bridge import CvBridge, CvBridgeError
-from skimage.util import img_as_float
+ 
 import PIL
 import time
 
@@ -76,7 +76,7 @@ def image_loader(image):
 parser = argparse.ArgumentParser()
 parser.add_argument("--image_folder", type=str, default="data/samples", help="path to dataset")
 parser.add_argument("--model_def", type=str, default="config/yolov3-custom.cfg", help="path to model definition file")
-parser.add_argument("--weights_path", type=str, default="weights/yolov3.weights", help="path to weights file")
+parser.add_argument("--weights_path", type=str, default="weights/yolov3_ckpt_14.pth", help="path to weights file")
 parser.add_argument("--class_path", type=str, default="data/custom/classes.names", help="path to class label file")
 parser.add_argument("--conf_thres", type=float, default=0.8, help="object confidence threshold")
 parser.add_argument("--nms_thres", type=float, default=0.2, help="iou thresshold for non-maximum suppression")
@@ -113,12 +113,18 @@ class YOLO3_ROS_Node:
         self.image_pub = rospy.Publisher("/output/maskrcnn/segmented",
                                          Image)
 
+        self.yolo_detection_pub = rospy.Publisher("/yolo/detection_boxes",
+                                         Detection2DArray)
+
         self.subscriber = rospy.Subscriber("/camera/color/image_raw",
                                            Image, self.callback, queue_size=1, buff_size=2002428800)
+ 
+
         self.bridge = CvBridge()                                                         
         self.counter = 1200
         self.start_time = time.time()
         self.x = 1 # displays the frame rate every 1 second
+ 
 
 
     def callback(self, ros_data):
@@ -126,11 +132,9 @@ class YOLO3_ROS_Node:
         Here images get converted and OBJECTS detected'''
         #### direct conversion to CV2 ####
         original_img = self.bridge.imgmsg_to_cv2(ros_data, desired_encoding="bgr8")
+
         #cv_image = cv2.resize(original_img, (640,320), interpolation = cv2.INTER_AREA)
         cv_image = cv2.copyMakeBorder(original_img, 0, 420, 0, 0, cv2.BORDER_CONSTANT) 
-        
-        
-
         
         # Uncomment thefollowing block in order to collect training data
         '''
@@ -142,21 +146,39 @@ class YOLO3_ROS_Node:
         with torch.no_grad():
             detections = model(cuda_tensor_of_original_image)
             detections = non_max_suppression(detections, opt.conf_thres, opt.nms_thres)
+        
+        detection_array = Detection2DArray()
 
-        if detections is not None:
+        if len(detections)>0:
             # Rescale boxes to original image
             #detections = rescale_boxes(detections, opt.img_size, cv_image.shape[:2])
             # print(detections)
             for x1, y1, x2, y2, conf, cls_conf, cls_pred in detections[0]:
 
                 #print("\t+ Label: %s, Conf: %.5f" % (classes[int(cls_pred)], cls_conf.item()))
-                k = 960 / 640.0
+                k = 960 / 640
+
                 # Create a Rectangle patch
-                cv2.rectangle(cv_image, (x1*k,y1*k), (x2*k,y2*k), (255,0,0), 2)
+                cv2.rectangle(original_img, (x1*k,y1*k), (x2*k,y2*k), (random.randint(
+                0, 255), random.randint(0, 255), 55), 2)
+                bbx = BoundingBox2D()
+                bbx.center.x  = (x1+x2)/2 * k 
+                bbx.center.y  = (y1+y2)/2 * k 
+                bbx.center.theta = 0
+                bbx.size_x = (x2-x1) * k
+                bbx.size_y = (y2-y1) * k
+                
+                bbx_for_this_detection = Detection2D()
+                bbx_for_this_detection.header.stamp = rospy.Time.now()
+                bbx_for_this_detection.bbox = bbx
+                detection_array.detections.append(bbx_for_this_detection)
+
+          
+        self.yolo_detection_pub.publish(detection_array)  
                 # Add the bbox to the plot
                 # Add label
         #### PUBLISH SEGMENTED IMAGE ####
-        msg = self.bridge.cv2_to_imgmsg(cv_image, "bgr8")
+        msg = self.bridge.cv2_to_imgmsg(original_img, "bgr8")
         msg.header.stamp = rospy.Time.now()
         self.image_pub.publish(msg)
         self.counter+=1
@@ -165,63 +187,6 @@ class YOLO3_ROS_Node:
             self.counter = 0
             self.start_time = time.time()    
          
-
-    def load_image(self, image):
-        """Load the specified image and return a [H,W,3] Numpy array.
-        """
-        # Load image
-        # If grayscale. Convert to RGB for consistency.
-        if image.ndim != 3:
-            image = skimage.color.gray2rgb(image)
-        # If has an alpha channel, remove it for consistency
-        if image.shape[-1] == 4:
-            image = image[..., :3]
-        return image
-
-    def segment_objects_on_white_image(self,image, boxes, masks, class_ids,
-                                       scores=None,):
-        """Apply color splash effect.
-        image: RGB image [height, width, 3]
-        mask: instance segmentation mask [height, width, instance count]
-        Returns result image.
-        """
-        # Make a grayscale copy of the image. The grayscale copy still
-        # has 3 RGB channels, though.
-        #xyz = rgb2xyz(image)
-        height = image.shape[0]
-        width = image.shape[1]
-        channels = image.shape[2]
-
-        N = boxes.shape[0]
-
-        white_image = np.zeros((height, width, channels), np.uint8)
-        white_image[:] = (255, 255, 255)
-        object_mask_image = np.zeros((height, width), np.uint8)
-        kernel = np.ones((21,21),np.uint8)
-
-        for i in range(N):
-
-            # Bounding box
-            if not np.any(boxes[i]):
-                # Skip this instance. Has no bbox. Likely lost in image cropping.
-                continue
-
-            class_id = class_ids[i]
-            score = scores[i] if scores is not None else None
-            if(score < 0.5):
-                break
-            # Mask
-            object_mask_image[:,:] = masks[:, :, i]
-    
-            contours, hierarchy = cv2.findContours(
-                object_mask_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
-            )
-            cv2.fillPoly(white_image, contours, (random.randint(
-                0, 255), random.randint(0, 255), random.randint(0, 255)))
-               
-  
-        #white_image = cv2.erode(white_image,kernel,iterations = 1)
-        return white_image
 
 
 # Run Node
