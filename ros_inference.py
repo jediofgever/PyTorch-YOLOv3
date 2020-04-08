@@ -150,9 +150,9 @@ class YOLO3_ROS_Node:
             for x1, y1, x2, y2, conf, cls_conf, cls_pred in detections[0]:
 
                 #print("\t+ Label: %s, Conf: %.5f" % (classes[int(cls_pred)], cls_conf.item()))
-
+                k = 960 / 640.0
                 # Create a Rectangle patch
-                cv2.rectangle(cv_image, (x1*1.5,y1*1.5), (x2*1.5,y2*1.5), (255,0,0), 2)
+                cv2.rectangle(cv_image, (x1*k,y1*k), (x2*k,y2*k), (255,0,0), 2)
                 # Add the bbox to the plot
                 # Add label
         #### PUBLISH SEGMENTED IMAGE ####
