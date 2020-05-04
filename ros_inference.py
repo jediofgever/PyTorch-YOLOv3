@@ -58,7 +58,7 @@ from cv_bridge import CvBridge, CvBridgeError
 import PIL
 import time
 
-imsize = 640
+imsize = 608
 loader = transforms.Compose([transforms.Scale(imsize), transforms.ToTensor()])
 
 def image_loader(image):
@@ -76,13 +76,13 @@ def image_loader(image):
 parser = argparse.ArgumentParser()
 parser.add_argument("--image_folder", type=str, default="data/samples", help="path to dataset")
 parser.add_argument("--model_def", type=str, default="config/yolov3-custom.cfg", help="path to model definition file")
-parser.add_argument("--weights_path", type=str, default="weights/yolov3_ckpt_14.pth", help="path to weights file")
+parser.add_argument("--weights_path", type=str, default="weights/yolov3_ckpt_98.pth", help="path to weights file")
 parser.add_argument("--class_path", type=str, default="data/custom/classes.names", help="path to class label file")
 parser.add_argument("--conf_thres", type=float, default=0.8, help="object confidence threshold")
-parser.add_argument("--nms_thres", type=float, default=0.2, help="iou thresshold for non-maximum suppression")
+parser.add_argument("--nms_thres", type=float, default=0.3, help="iou thresshold for non-maximum suppression")
 parser.add_argument("--batch_size", type=int, default=10, help="size of the batches")
 parser.add_argument("--n_cpu", type=int, default=1, help="number of cpu threads to use during batch generation")
-parser.add_argument("--img_size", type=int, default=320, help="size of each image dimension")
+parser.add_argument("--img_size", type=int, default=960, help="size of each image dimension")
 parser.add_argument("--checkpoint_model", type=str, help="path to checkpoint model")
 opt = parser.parse_args()
 print(opt)
@@ -119,28 +119,27 @@ class YOLO3_ROS_Node:
         self.subscriber = rospy.Subscriber("/camera/color/image_raw",
                                            Image, self.callback, queue_size=1, buff_size=2002428800)
  
-
         self.bridge = CvBridge()                                                         
-        self.counter = 1200
+        self.counter = 2000
         self.start_time = time.time()
         self.x = 1 # displays the frame rate every 1 second
  
-
-
     def callback(self, ros_data):
         '''Callback function of subscribed topic. 
         Here images get converted and OBJECTS detected'''
         #### direct conversion to CV2 ####
         original_img = self.bridge.imgmsg_to_cv2(ros_data, desired_encoding="bgr8")
-
-        #cv_image = cv2.resize(original_img, (640,320), interpolation = cv2.INTER_AREA)
-        cv_image = cv2.copyMakeBorder(original_img, 0, 420, 0, 0, cv2.BORDER_CONSTANT) 
+        cv_image = cv2.copyMakeBorder(original_img, 0, 420, 0, 0, cv2.BORDER_CONSTANT)
         
-        # Uncomment thefollowing block in order to collect training data
-        '''
-        cv2.imwrite("/home/atas/MASKRCNN_REAL_DATASET/"+str(self.counter)+".png",cv_image)
-        self.counter = self.counter +1 
-        '''
+        #
+        #cv_image =  cv2.resize(original_img, (640,640), interpolation = cv2.INTER_AREA)        
+        #Uncomment thefollowing block in order to collect training data
+        
+        #cv2.imwrite("/home/atas/MASKRCNN_REAL_DATASET/"+str(self.counter)+".png",original_img)
+        
+        #self.counter = self.counter +1 
+        #sec = input('PRESS KEY FOR NEXT.\n')
+ 
         cuda_tensor_of_original_image = image_loader(cv_image)
        # Get detections
         with torch.no_grad():
@@ -156,7 +155,7 @@ class YOLO3_ROS_Node:
             for x1, y1, x2, y2, conf, cls_conf, cls_pred in detections[0]:
 
                 #print("\t+ Label: %s, Conf: %.5f" % (classes[int(cls_pred)], cls_conf.item()))
-                k = 960 / 640
+                k = 960 / imsize
 
                 # Create a Rectangle patch
                 cv2.rectangle(original_img, (x1*k,y1*k), (x2*k,y2*k), (random.randint(
@@ -168,12 +167,14 @@ class YOLO3_ROS_Node:
                 bbx.size_x = (x2-x1) * k
                 bbx.size_y = (y2-y1) * k
                 
+                
                 bbx_for_this_detection = Detection2D()
                 bbx_for_this_detection.header.stamp = rospy.Time.now()
                 bbx_for_this_detection.bbox = bbx
                 detection_array.detections.append(bbx_for_this_detection)
+                detection_array.header.stamp = rospy.Time.now()
 
-          
+
         self.yolo_detection_pub.publish(detection_array)  
                 # Add the bbox to the plot
                 # Add label
@@ -187,8 +188,6 @@ class YOLO3_ROS_Node:
             self.counter = 0
             self.start_time = time.time()    
          
-
-
 # Run Node
 if __name__ == '__main__':
     '''Initializes and cleanup ros node'''

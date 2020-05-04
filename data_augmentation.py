@@ -11,7 +11,7 @@ from imgaug.augmentables.bbs import BoundingBox, BoundingBoxesOnImage
 
 
 ## Open lables which is in coco Format see here for this format http://cocodataset.org/#format-data 
-with open('data/custom/images/via_export_coco.json') as f:
+with open('data/custom/images/via_export_coco_overlaps.json') as f:
   data =  json.load(f)
 
 #parse this jsoin and get annotion and image seperately
@@ -34,7 +34,16 @@ static_seq = iaa.Sequential([
           scale=(0.6, 0.9)
       ) # translate by 40/60px on x/y axis, and scale to 50-70%, affects BBs
 ])
-  
+ 
+# Define our sequence of augmentation steps that will be applied to every image.
+hard_seq = iaa.Sequential([
+      iaa.Multiply((0.8, 1.2)), # change brightness, doesn't affect BBs
+      iaa.Affine(
+          translate_percent={"x": (-0.1, 0.1), "y": (-0.1, 0.1)},
+          scale=(0.7, 1.2)
+      ),
+ 
+])  
 
 
 def write_augmented_image_and_labels(image_aug , bbs_aug,class_id, prefix,image_file_name, label_file_name):
@@ -43,9 +52,10 @@ def write_augmented_image_and_labels(image_aug , bbs_aug,class_id, prefix,image_
   file_that_contains_training_image_paths.write('data/custom/images/'+prefix+image_file_name+'\n')
 
   augmented_label = open("data/custom/labels/"+prefix+label_file_name,"w+")
+  
 
   for i in range(len(bbs_aug)):
-    #cv2.rectangle(image_aug, (int(bbs_aug[i].x1), int(bbs_aug[i].y1)), (int(bbs_aug[i].x2), int(bbs_aug[i].y2)), (255,0,0), 2)
+ 
     x1 = int(bbs_aug[i].x1)
     x2 = int(bbs_aug[i].x2)
 
@@ -54,27 +64,29 @@ def write_augmented_image_and_labels(image_aug , bbs_aug,class_id, prefix,image_
      
     if x1 < 0:
       x1=1
-    if x1 > 640:
-      x1 = 639
+    if x1 > 960:
+      x1 = 959
     if x2 < 0:
       x2=1
-    if x2 > 640:
-      x2 = 639
+    if x2 > 960:
+      x2 = 959
     if y1 < 0:
       y1=1
-    if y1 > 640:
-      y1 = 639
+    if y1 > 960:
+      y1 = 959
     if y2 < 0:
       y2=1
-    if y2 > 640:
-      y2 = 639
-    
-    center_x = (x1 + x2)/2 
-    center_y = (y1 + y2)/2 
-    width = (x2 - x1)   
-    height = (y2 - y1)  
+    if y2 > 960:
+      y2 = 959
+    print(x1,y1)
+    #cv2.rectangle(image_aug,(x1,y1),(x2,y2),(90,0,0),1)
 
-    max_ = 640
+    center_x_augmented = (x1 + x2)/2 
+    center_y_augmented = (y1 + y2)/2 
+    width_augmented = (x2 - x1)   
+    height_augmented = (y2 - y1)  
+
+    max_ = 960
     min_ = 0 
 
     normalized_center_x = center_x / max_
@@ -100,17 +112,23 @@ for k in range (len(images)):
   ## Write Path of validation Images
   file_that_contains_validation_image_paths.write('data/custom/images/'+str(images[k]['file_name'])+'\n')
   
+  ##Open a file for each image thats has labeled objectsin
+  file_that_contains_labels_for_this_image = open("data/custom/labels/"+str(images[k]['file_name'][:-4])+".txt","w+")
+  ## a array to store the boxes for that define boundries of labels
+  
   #Get original image, that is labeled
   original_image = cv2.imread('/home/atas/PyTorch-YOLOv3/data/custom/images/'+str(images[k]['file_name']))
  
   ## The very first images are 1280x720 , so we need to resize ONCE them and ALWAYS change labels accordingly
-  #resized = cv2.resize(original_image, (640,360), interpolation = cv2.INTER_AREA)
+  #resized = cv2.resize(original_image, (960,360), interpolation = cv2.INTER_AREA)
   #original_image = cv2.copyMakeBorder(resized, 0, 280, 0, 0, cv2.BORDER_CONSTANT) 
+  original_image = cv2.resize(original_image, (960,960), interpolation = cv2.INTER_AREA)
 
-  ##Open a file for each image thats has labeled objectsin
-  file_that_contains_labels_for_this_image = open("data/custom/labels/"+str(images[k]['file_name'][:-4])+".txt","w+")
-  ## a array to store the boxes for that define boundries of labels
+
+
   all_boxes_of_this_image=[]
+  
+  num_annots_in_this_image = 0
 
   ##And now go through all the annotations and match them with the images they are in
   for i in range(len(annots)):
@@ -120,12 +138,14 @@ for k in range (len(images)):
        
     ## But YOLO format is; 
     ## class_id center_x center_y width height
-    ## lets do conversion to format of center_x center_y width height, MULTIPLY THEM BY 0.5 BECAUSE WE DOWNSIZED THE ORIGINAL IMAGE TO 640X360
+    ## lets do conversion to format of center_x center_y width height, MULTIPLY THEM BY 0.5 BECAUSE WE DOWNSIZED THE ORIGINAL IMAGE TO 960X360
     ## SO LABELS SHOULD BE DOWNSIZED BY HALF TOO
-    center_x = (bounding_box_of_this_annotation[0]+ (bounding_box_of_this_annotation[2]/2)) * 50/100
-    center_y = (bounding_box_of_this_annotation[1]+ (bounding_box_of_this_annotation[3]/2)) * 50/100
-    width = (bounding_box_of_this_annotation[2]) * 50/100
-    height =(bounding_box_of_this_annotation[3]) * 50/100
+    center_x = (bounding_box_of_this_annotation[0]+ (bounding_box_of_this_annotation[2]/2)) * 960/1280
+    center_y = (bounding_box_of_this_annotation[1]+ (bounding_box_of_this_annotation[3]/2)) * 960/1280
+    width = (bounding_box_of_this_annotation[2]) * 960/1280
+    height =(bounding_box_of_this_annotation[3]) * 960/1280
+    
+
     
     
     max_ = original_image.shape[1] 
@@ -137,13 +157,16 @@ for k in range (len(images)):
     normalized_height = height / max_
     
     ##GET THE image_id that contains this bounding box
-    image_id_that_has_this_bounding_box = annots[i]['image_id']
+    image_id_that_has_this_bounding_box = int(annots[i]['image_id'])
+    
 
     # Now lets match this bounding box with its parent image 
     if(images[k]['id'] == image_id_that_has_this_bounding_box):
+      print(bounding_box_of_this_annotation)
+      num_annots_in_this_image += 1
 
       ## WRITE THIS ANNOTATION WITH MATCHED BOUNDING BOX
-      file_that_contains_labels_for_this_image.write(str(annots[i]['category_id']) + ' '+ 
+      file_that_contains_labels_for_this_image.write(str(0) + ' '+ 
                                   str(normalized_center_x) + ' '+  
                                   str(normalized_center_y) + ' '+ 
                                   str(normalized_width) + ' '+ 
@@ -155,7 +178,8 @@ for k in range (len(images)):
 
       ## append this box
       all_boxes_of_this_image.extend(this_bounding_box)
-
+  if num_annots_in_this_image == 0:
+        continue
 
   image_file_name = images[k]['file_name']
   cv2.imwrite('/home/atas/PyTorch-YOLOv3/data/custom/images/'+image_file_name,original_image)
@@ -163,32 +187,37 @@ for k in range (len(images)):
   label_file_name = images[k]['file_name'][:-4]+ ".txt"
 
   original_bounding_boxes = BoundingBoxesOnImage(all_boxes_of_this_image,shape=original_image.shape)
-  original_bounding_boxes.remove_out_of_image()
-  original_bounding_boxes.remove_out_of_image().clip_out_of_image()
+
 
   prefix = 'augmentation_one_'
-  images_augmentation_one_, bbs_augmentation_one_ = static_seq(image=original_image, bounding_boxes=original_bounding_boxes)
-  write_augmented_image_and_labels(images_augmentation_one_,bbs_augmentation_one_,annots[i]['category_id'],prefix,image_file_name,label_file_name)
- 
+  images_augmentation_one_, bbs_augmentation_one_ = hard_seq(image=original_image, bounding_boxes=original_bounding_boxes)
+  bbs_augmentation_one_.remove_out_of_image()
+  bbs_augmentation_one_.remove_out_of_image().clip_out_of_image()
+  write_augmented_image_and_labels(images_augmentation_one_,bbs_augmentation_one_,0,prefix,image_file_name,label_file_name)
+  
 
-  prefix = 'augmentation_second_'
-  images_augmentation_second_, bbs_augmentation_second_ = static_seq(image=original_image, bounding_boxes=original_bounding_boxes)
-  write_augmented_image_and_labels(images_augmentation_second_,bbs_augmentation_second_,annots[i]['category_id'],prefix,image_file_name,label_file_name)
+    
+
 
   '''
- 
+  
+  prefix = 'augmentation_second_'
+  images_augmentation_second_, bbs_augmentation_second_ = static_seq(image=original_image, bounding_boxes=original_bounding_boxes)
+  bbs_augmentation_second_.remove_out_of_image()
+  bbs_augmentation_second_.remove_out_of_image().clip_out_of_image()
+  write_augmented_image_and_labels(images_augmentation_second_,bbs_augmentation_second_,0,prefix,image_file_name,label_file_name)
+  
   prefix = 'augmentation_second_'
   images_augmentation_second_, bbs_augmentation_second_ = seq(image=original_image, bounding_boxes=original_bounding_boxes)
   write_augmented_image_and_labels(images_augmentation_second_,bbs_augmentation_second_,annots[i]['category_id'],prefix,image_file_name,label_file_name)
-  
+    
   prefix = 'augmentation_third_'
   images_augmentation_third_, bbs_augmentation_third_ = seq(image=original_image, bounding_boxes=original_bounding_boxes)
   write_augmented_image_and_labels(images_augmentation_third_,bbs_augmentation_third_,annots[i]['category_id'],prefix,image_file_name,label_file_name)
- 
+   
   prefix = 'augmentation_forth_'
   images_augmentation_forth_, bbs_augmentation_forth_ = seq(image=original_image, bounding_boxes=original_bounding_boxes)
   write_augmented_image_and_labels(images_augmentation_forth_,bbs_augmentation_forth_,annots[i]['category_id'],prefix,image_file_name,label_file_name) 
-  '''
- 
+  ''' 
 file_that_contains_training_image_paths.close()
 file_that_contains_validation_image_paths.close()
