@@ -75,9 +75,9 @@ def image_loader(image):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--image_folder", type=str, default="data/samples", help="path to dataset")
-parser.add_argument("--model_def", type=str, default="config/yolov3-custom.cfg", help="path to model definition file")
-parser.add_argument("--weights_path", type=str, default="weights/yolov3_ckpt_98.pth", help="path to weights file")
-parser.add_argument("--class_path", type=str, default="data/custom/classes.names", help="path to class label file")
+parser.add_argument("--model_def", type=str, default="/home/atas/catkin_ws/catkin_ws_py3_nn/src/ROS_NNs_FANUC_LRMATE200ID/PyTorch-YOLOv3/config/yolov3-custom.cfg", help="path to model definition file")
+parser.add_argument("--weights_path", type=str, default="/home/atas/catkin_ws/catkin_ws_py3_nn/src/ROS_NNs_FANUC_LRMATE200ID/PyTorch-YOLOv3/weights/yolov3_ckpt_98.pth", help="path to weights file")
+parser.add_argument("--class_path", type=str, default="/home/atas/catkin_ws/catkin_ws_py3_nn/src/ROS_NNs_FANUC_LRMATE200ID/PyTorch-YOLOv3/data/custom/classes.names", help="path to class label file")
 parser.add_argument("--conf_thres", type=float, default=0.8, help="object confidence threshold")
 parser.add_argument("--nms_thres", type=float, default=0.3, help="iou thresshold for non-maximum suppression")
 parser.add_argument("--batch_size", type=int, default=10, help="size of the batches")
