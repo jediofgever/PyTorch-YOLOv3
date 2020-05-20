@@ -1,0 +1,13 @@
+{
+    "python.autoComplete.extraPaths": [
+        "/home/atas/catkin_ws/catkin_ws_py3_nn/devel_isolated/rosunit/lib/python3/dist-packages",
+        "/home/atas/catkin_ws/catkin_ws_py3_nn/devel_isolated/roslib/lib/python3/dist-packages",
+        "/home/atas/catkin_ws/catkin_ws_py3_nn/devel_isolated/rosmake/lib/python3/dist-packages",
+        "/home/atas/catkin_ws/catkin_ws_py3_nn/devel_isolated/roscreate/lib/python3/dist-packages",
+        "/home/atas/catkin_ws/catkin_ws_py3_nn/devel_isolated/rosclean/lib/python3/dist-packages",
+        "/home/atas/catkin_ws/catkin_ws_py3_nn/devel_isolated/rosboost_cfg/lib/python3/dist-packages",
+        "/home/atas/catkin_ws/catkin_ws_py3_nn/devel_isolated/image_geometry/lib/python3/dist-packages",
+        "/home/atas/catkin_ws/catkin_ws_py3_nn/devel_isolated/cv_bridge/lib/python3/dist-packages",
+        "/opt/ros/melodic/lib/python2.7/dist-packages"
+    ]
+}

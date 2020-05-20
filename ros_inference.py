@@ -58,7 +58,7 @@ from cv_bridge import CvBridge, CvBridgeError
 import PIL
 import time
 
-imsize = 608
+imsize = 416
 loader = transforms.Compose([transforms.Scale(imsize), transforms.ToTensor()])
 
 def image_loader(image):
@@ -129,7 +129,9 @@ class YOLO3_ROS_Node:
         Here images get converted and OBJECTS detected'''
         #### direct conversion to CV2 ####
         original_img = self.bridge.imgmsg_to_cv2(ros_data, desired_encoding="bgr8")
-        cv_image = cv2.copyMakeBorder(original_img, 0, 420, 0, 0, cv2.BORDER_CONSTANT)
+        print(original_img.shape)
+        to_square = original_img.shape[1] - original_img.shape[0]
+        cv_image = cv2.copyMakeBorder(original_img, 0, to_square, 0, 0, cv2.BORDER_CONSTANT)
         
         #
         #cv_image =  cv2.resize(original_img, (640,640), interpolation = cv2.INTER_AREA)        
@@ -155,7 +157,7 @@ class YOLO3_ROS_Node:
             for x1, y1, x2, y2, conf, cls_conf, cls_pred in detections[0]:
 
                 #print("\t+ Label: %s, Conf: %.5f" % (classes[int(cls_pred)], cls_conf.item()))
-                k = 960 / imsize
+                k = original_img.shape[1] / imsize
 
                 # Create a Rectangle patch
                 cv2.rectangle(original_img, (x1*k,y1*k), (x2*k,y2*k), (random.randint(

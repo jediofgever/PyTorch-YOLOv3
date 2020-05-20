@@ -1,0 +1,18 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "",
+        "limitSymbolsToIncludedHeaders": true
+      },
+      "includePath": [
+        "/opt/ros/melodic/include/**",
+        "/home/atas/catkin_ws/catkin_ws_py3_nn/src/vision_opencv/cv_bridge/include/**",
+        "/home/atas/catkin_ws/catkin_ws_py3_nn/src/vision_opencv/image_geometry/include/**",
+        "/home/atas/catkin_ws/catkin_ws_py3_nn/src/ros/core/roslib/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS"
+    }
+  ]
+}
