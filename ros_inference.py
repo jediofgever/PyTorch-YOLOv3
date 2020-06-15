@@ -57,6 +57,8 @@ from cv_bridge import CvBridge, CvBridgeError
  
 import PIL
 import time
+from pathlib import Path
+home = str(Path.home())
 
 imsize = 416
 loader = transforms.Compose([transforms.Scale(imsize), transforms.ToTensor()])
@@ -71,13 +73,14 @@ def image_loader(image):
     image = image.unsqueeze(0)  #this is for VGG, may not be needed for ResNet
     return image.cuda()  #assumes that you're using GPU
 
+home 
  
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--image_folder", type=str, default="data/samples", help="path to dataset")
-parser.add_argument("--model_def", type=str, default="/home/atas/catkin_ws/catkin_ws_py3_nn/src/ROS_NNs_FANUC_LRMATE200ID/PyTorch-YOLOv3/config/yolov3-custom.cfg", help="path to model definition file")
-parser.add_argument("--weights_path", type=str, default="/home/atas/catkin_ws/catkin_ws_py3_nn/src/ROS_NNs_FANUC_LRMATE200ID/PyTorch-YOLOv3/weights/yolov3_ckpt_98.pth", help="path to weights file")
-parser.add_argument("--class_path", type=str, default="/home/atas/catkin_ws/catkin_ws_py3_nn/src/ROS_NNs_FANUC_LRMATE200ID/PyTorch-YOLOv3/data/custom/classes.names", help="path to class label file")
+parser.add_argument("--model_def", type=str, default=home + "/release_ws/release_ws_py3_nn/src/ROS_NNs_FANUC_LRMATE200ID/PyTorch-YOLOv3/config/yolov3-custom.cfg", help="path to model definition file")
+parser.add_argument("--weights_path", type=str, default=home + "/release_ws/release_ws_py3_nn/src/ROS_NNs_FANUC_LRMATE200ID/PyTorch-YOLOv3/weights/yolov3_ckpt_98.pth", help="path to weights file")
+parser.add_argument("--class_path", type=str, default=home + "/release_ws/release_ws_py3_nn/src/ROS_NNs_FANUC_LRMATE200ID/PyTorch-YOLOv3/data/custom/classes.names", help="path to class label file")
 parser.add_argument("--conf_thres", type=float, default=0.8, help="object confidence threshold")
 parser.add_argument("--nms_thres", type=float, default=0.3, help="iou thresshold for non-maximum suppression")
 parser.add_argument("--batch_size", type=int, default=10, help="size of the batches")
@@ -137,7 +140,7 @@ class YOLO3_ROS_Node:
         #cv_image =  cv2.resize(original_img, (640,640), interpolation = cv2.INTER_AREA)        
         #Uncomment thefollowing block in order to collect training data
         
-        #cv2.imwrite("/home/atas/MASKRCNN_REAL_DATASET/"+str(self.counter)+".png",original_img)
+        #cv2.imwrite(home + "/MASKRCNN_REAL_DATASET/"+str(self.counter)+".png",original_img)
         
         #self.counter = self.counter +1 
         #sec = input('PRESS KEY FOR NEXT.\n')
