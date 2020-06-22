@@ -42,10 +42,10 @@ import cv2
 import sys
 import time
 
-# Ros libraries
+#Ros libraries
 import roslib
 import rospy
-# Ros Messages
+#Ros Messages
 from sensor_msgs.msg import CompressedImage
 from sensor_msgs.msg import Image
 from vision_msgs.msg import Detection2DArray
@@ -57,6 +57,7 @@ from cv_bridge import CvBridge, CvBridgeError
  
 import PIL
 import time
+import os
 
 imsize = 416
 loader = transforms.Compose([transforms.Scale(imsize), transforms.ToTensor()])
@@ -72,12 +73,13 @@ def image_loader(image):
     return image.cuda()  #assumes that you're using GPU
 
  
-
+relative_path_prefix = os.getcwd() + "/PyTorch-YOLOv3/"
+ 
 parser = argparse.ArgumentParser()
 parser.add_argument("--image_folder", type=str, default="data/samples", help="path to dataset")
-parser.add_argument("--model_def", type=str, default="/home/atas/catkin_ws/catkin_ws_py3_nn/src/ROS_NNs_FANUC_LRMATE200ID/PyTorch-YOLOv3/config/yolov3-custom.cfg", help="path to model definition file")
-parser.add_argument("--weights_path", type=str, default="/home/atas/catkin_ws/catkin_ws_py3_nn/src/ROS_NNs_FANUC_LRMATE200ID/PyTorch-YOLOv3/weights/yolov3_ckpt_98.pth", help="path to weights file")
-parser.add_argument("--class_path", type=str, default="/home/atas/catkin_ws/catkin_ws_py3_nn/src/ROS_NNs_FANUC_LRMATE200ID/PyTorch-YOLOv3/data/custom/classes.names", help="path to class label file")
+parser.add_argument("--model_def", type=str, default=relative_path_prefix + "config/yolov3-custom.cfg", help="path to model definition file")
+parser.add_argument("--weights_path", type=str, default=relative_path_prefix + "weights/yolov3_ckpt_14.pth", help="path to weights file")
+parser.add_argument("--class_path", type=str, default=relative_path_prefix + "data/custom/classes.names", help="path to class label file")
 parser.add_argument("--conf_thres", type=float, default=0.8, help="object confidence threshold")
 parser.add_argument("--nms_thres", type=float, default=0.3, help="iou thresshold for non-maximum suppression")
 parser.add_argument("--batch_size", type=int, default=10, help="size of the batches")
@@ -90,14 +92,14 @@ print(opt)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 os.makedirs("output", exist_ok=True)
-# Set up model
+#Set up model
 model = Darknet(opt.model_def, img_size=opt.img_size).to(device)
 
 if opt.weights_path.endswith(".weights"):
-    # Load darknet weights
+#Load darknet weights
     model.load_darknet_weights(opt.weights_path)
 else:
-    # Load checkpoint weights
+#Load checkpoint weights
     model.load_state_dict(torch.load(opt.weights_path))
 
 model.eval()  # Set in evaluation mode
@@ -109,7 +111,7 @@ class YOLO3_ROS_Node:
 
     def __init__(self):
         '''Initialize ros publisher, ros subscriber'''
-        # topic where we publish
+#topic where we publish
         self.image_pub = rospy.Publisher("/output/maskrcnn/segmented",
                                          Image)
 
@@ -132,18 +134,18 @@ class YOLO3_ROS_Node:
         print(original_img.shape)
         to_square = original_img.shape[1] - original_img.shape[0]
         cv_image = cv2.copyMakeBorder(original_img, 0, to_square, 0, 0, cv2.BORDER_CONSTANT)
-        
-        #
-        #cv_image =  cv2.resize(original_img, (640,640), interpolation = cv2.INTER_AREA)        
-        #Uncomment thefollowing block in order to collect training data
-        
-        #cv2.imwrite("/home/atas/MASKRCNN_REAL_DATASET/"+str(self.counter)+".png",original_img)
-        
-        #self.counter = self.counter +1 
-        #sec = input('PRESS KEY FOR NEXT.\n')
+
+#
+#cv_image = cv2.resize(original_img, (640, 640), interpolation = cv2.INTER_AREA)
+#Uncomment thefollowing block in order to collect training data
+
+#cv2.imwrite("/home/atas/MASKRCNN_REAL_DATASET/" + str(self.counter) + ".png", original_img)
+
+#self.counter = self.counter + 1
+#sec = input('PRESS KEY FOR NEXT.\n')
  
         cuda_tensor_of_original_image = image_loader(cv_image)
-       # Get detections
+#Get detections
         with torch.no_grad():
             detections = model(cuda_tensor_of_original_image)
             detections = non_max_suppression(detections, opt.conf_thres, opt.nms_thres)
@@ -151,15 +153,15 @@ class YOLO3_ROS_Node:
         detection_array = Detection2DArray()
 
         if len(detections)>0:
-            # Rescale boxes to original image
-            #detections = rescale_boxes(detections, opt.img_size, cv_image.shape[:2])
-            # print(detections)
+#Rescale boxes to original image
+#detections = rescale_boxes(detections, opt.img_size, cv_image.shape[:2])
+#print(detections)
             for x1, y1, x2, y2, conf, cls_conf, cls_pred in detections[0]:
 
-                #print("\t+ Label: %s, Conf: %.5f" % (classes[int(cls_pred)], cls_conf.item()))
+#print("\t+ Label: %s, Conf: %.5f" % (classes[int(cls_pred)], cls_conf.item()))
                 k = original_img.shape[1] / imsize
 
-                # Create a Rectangle patch
+#Create a Rectangle patch
                 cv2.rectangle(original_img, (x1*k,y1*k), (x2*k,y2*k), (random.randint(
                 0, 255), random.randint(0, 255), 55), 2)
                 bbx = BoundingBox2D()
@@ -177,9 +179,9 @@ class YOLO3_ROS_Node:
                 detection_array.header.stamp = rospy.Time.now()
 
 
-        self.yolo_detection_pub.publish(detection_array)  
-                # Add the bbox to the plot
-                # Add label
+        self.yolo_detection_pub.publish(detection_array)
+#Add the bbox to the plot
+#Add label
         #### PUBLISH SEGMENTED IMAGE ####
         msg = self.bridge.cv2_to_imgmsg(original_img, "bgr8")
         msg.header.stamp = rospy.Time.now()
@@ -188,9 +190,9 @@ class YOLO3_ROS_Node:
         if (time.time() - self.start_time) > self.x :
             print("FPS: ", self.counter / (time.time() - self.start_time))
             self.counter = 0
-            self.start_time = time.time()    
-         
-# Run Node
+            self.start_time = time.time()
+
+#Run Node
 if __name__ == '__main__':
     '''Initializes and cleanup ros node'''
     ic = YOLO3_ROS_Node()
