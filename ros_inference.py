@@ -83,7 +83,7 @@ parser.add_argument("--image_folder", type=str,
 parser.add_argument("--model_def", type=str, default=relative_path_prefix +
                     "config/yolov3-custom.cfg", help="path to model definition file")
 parser.add_argument("--weights_path", type=str, default=relative_path_prefix +
-                    "weights/yolov3_ckpt_14.pth", help="path to weights file")
+                    "weights/yolov3_ckpt_98.pth", help="path to weights file")
 parser.add_argument("--class_path", type=str, default=relative_path_prefix +
                     "data/custom/classes.names", help="path to class label file")
 parser.add_argument("--conf_thres", type=float, default=0.8,
