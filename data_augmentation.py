@@ -11,7 +11,7 @@ from imgaug.augmentables.bbs import BoundingBox, BoundingBoxesOnImage
 
 
 ## Open lables which is in coco Format see here for this format http://cocodataset.org/#format-data 
-with open('data/custom/images/via_export_coco_overlaps.json') as f:
+with open('data/custom/images/labels.json') as f:
   data =  json.load(f)
 
 #parse this jsoin and get annotion and image seperately
@@ -40,9 +40,11 @@ hard_seq = iaa.Sequential([
       iaa.Multiply((0.8, 1.2)), # change brightness, doesn't affect BBs
       iaa.Affine(
           translate_percent={"x": (-0.1, 0.1), "y": (-0.1, 0.1)},
-          scale=(0.7, 1.2)
+          scale=(0.7, 1.2),
       ),
- 
+      iaa.AdditiveGaussianNoise(scale=0.05*255),
+      iaa.Crop(px=(1, 16), keep_size=False),
+      iaa.Fliplr(0.5),
 ])  
 
 
@@ -83,8 +85,8 @@ def write_augmented_image_and_labels(image_aug , bbs_aug,class_id, prefix,image_
 
     center_x_augmented = (x1 + x2)/2 
     center_y_augmented = (y1 + y2)/2 
-    width_augmented = (x2 - x1)   
-    height_augmented = (y2 - y1)  
+    width_augmented = (x2 - x1) 
+    height_augmented = (y2 - y1) 
 
     max_ = 960
     min_ = 0 
@@ -99,7 +101,7 @@ def write_augmented_image_and_labels(image_aug , bbs_aug,class_id, prefix,image_
                           str(normalized_center_y) + ' '+ 
                           str(normalized_width) + ' '+ 
                           str(normalized_height) + '\n')
-  cv2.imwrite('/home/atas/PyTorch-YOLOv3/data/custom/images/'+prefix+str(images[k]['file_name']),image_aug)
+  cv2.imwrite("data/custom/images/"+prefix+str(images[k]['file_name']),image_aug)
   augmented_label.close()
 
                        
@@ -117,11 +119,11 @@ for k in range (len(images)):
   ## a array to store the boxes for that define boundries of labels
   
   #Get original image, that is labeled
-  original_image = cv2.imread('/home/atas/PyTorch-YOLOv3/data/custom/images/'+str(images[k]['file_name']))
+  original_image = cv2.imread("data/custom/images/"+str(images[k]['file_name']))
  
   ## The very first images are 1280x720 , so we need to resize ONCE them and ALWAYS change labels accordingly
-  #resized = cv2.resize(original_image, (960,360), interpolation = cv2.INTER_AREA)
-  #original_image = cv2.copyMakeBorder(resized, 0, 280, 0, 0, cv2.BORDER_CONSTANT) 
+  if(original_image.shape[0] != original_image.shape[1]):
+    original_image = cv2.copyMakeBorder(original_image, 0, 560, 0, 0, cv2.BORDER_CONSTANT) 
   original_image = cv2.resize(original_image, (960,960), interpolation = cv2.INTER_AREA)
 
 
@@ -140,8 +142,8 @@ for k in range (len(images)):
     ## class_id center_x center_y width height
     ## lets do conversion to format of center_x center_y width height, MULTIPLY THEM BY 0.5 BECAUSE WE DOWNSIZED THE ORIGINAL IMAGE TO 960X360
     ## SO LABELS SHOULD BE DOWNSIZED BY HALF TOO
-    center_x = (bounding_box_of_this_annotation[0]+ (bounding_box_of_this_annotation[2]/2)) * 960/1280
-    center_y = (bounding_box_of_this_annotation[1]+ (bounding_box_of_this_annotation[3]/2)) * 960/1280
+    center_x = (bounding_box_of_this_annotation[0]+ (bounding_box_of_this_annotation[2]/2)) *960/1280
+    center_y = (bounding_box_of_this_annotation[1]+ (bounding_box_of_this_annotation[3]/2)) *960/1280
     width = (bounding_box_of_this_annotation[2]) * 960/1280
     height =(bounding_box_of_this_annotation[3]) * 960/1280
     
@@ -182,7 +184,7 @@ for k in range (len(images)):
         continue
 
   image_file_name = images[k]['file_name']
-  cv2.imwrite('/home/atas/PyTorch-YOLOv3/data/custom/images/'+image_file_name,original_image)
+  cv2.imwrite("data/custom/images/"+image_file_name,original_image)
 
   label_file_name = images[k]['file_name'][:-4]+ ".txt"
 
@@ -194,6 +196,12 @@ for k in range (len(images)):
   bbs_augmentation_one_.remove_out_of_image()
   bbs_augmentation_one_.remove_out_of_image().clip_out_of_image()
   write_augmented_image_and_labels(images_augmentation_one_,bbs_augmentation_one_,0,prefix,image_file_name,label_file_name)
+
+  prefix = 'augmentation_second_'
+  images_augmentation_second_, bbs_augmentation_second_ = static_seq(image=original_image, bounding_boxes=original_bounding_boxes)
+  bbs_augmentation_second_.remove_out_of_image()
+  bbs_augmentation_second_.remove_out_of_image().clip_out_of_image()
+  write_augmented_image_and_labels(images_augmentation_second_,bbs_augmentation_second_,0,prefix,image_file_name,label_file_name)
   
 
     
