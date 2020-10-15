@@ -21,11 +21,11 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.ticker import NullLocator
 
-
 import json
 import datetime
-
-
+import PIL
+import time
+from pathlib import Path
 import os
 import os.path
 import sys
@@ -43,19 +43,14 @@ import time
 # Ros libraries
 import roslib
 import rospy
-# Ros Messages
 from sensor_msgs.msg import CompressedImage
 from sensor_msgs.msg import Image
 from vision_msgs.msg import Detection2DArray
 from vision_msgs.msg import Detection2D
 from vision_msgs.msg import BoundingBox2D
-
-
 from cv_bridge import CvBridge, CvBridgeError
 
-import PIL
-import time
-from pathlib import Path
+
 home = str(Path.home())
 
 imsize = 416
@@ -72,8 +67,6 @@ def image_loader(image):
     image = image.unsqueeze(0)  # this is for VGG, may not be needed for ResNet
     return image.cuda()  # assumes that you're using GPU
 
-
-home
 
 relative_path_prefix = os.getcwd() + "/PyTorch-YOLOv3/"
 
