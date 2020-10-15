@@ -4,8 +4,6 @@ build
 *.egg-info
 dist
 output
-data/coco
-data/custom
 backup
 weights/*.weights
 weights/*.pth
